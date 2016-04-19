@@ -1,4 +1,4 @@
 string name
 geometry_msgs::Pose pose
-GNode[] goes_to
+string[] goes_to
 

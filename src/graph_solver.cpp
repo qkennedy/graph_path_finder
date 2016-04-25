@@ -19,6 +19,7 @@ std::normal_distribution<double> distribution(0.0,1.0); //args: mean, std_dev
 //TODO  Create method pathfromvec that converts from the vec of indexes to a path of poses
 vec<node> g_nodes;
 struct node{
+	int index;
 	double x;
 	double y;
 	double cost;
@@ -33,21 +34,22 @@ void graph_CB(const graph_path_finder_msgs::Graph& graph)
   g_nodes.resize(num_nodes);
   for (int i=0;i<num_nodes;i++) {
     node tmp=new node;
+    tmp.index=i;
     tmp.x=0;
     tmp.y=0;
-    tmp.bestFrom=-1;
-    tmp.cost=999999999;
+    tmp.best_from=-1;
+    tmp.cost=std::numeric_limits<double>::max();
     tmp.to.resize(graph.nodes[i].goes_to.size());
     for(int j=0;j<graph.nodes[i].goes_to.size();j++){
     		tmp.to[i]=graph.nodes[i].goes_to[i];
     	}
-    	g_nodes[i]=tmp;
+    	g_nodes.push_back(tmp);
     }
 }
 
 int find_nearest_node(nav_msgs::Point point){
 	int minNode=-1;
- 	double mindist=9999999999;
+ 	double mindist=std::numeric_limits<double>::max();;
  	double x=point.x;
   	double y=point.y;
   	for(int i=0; i<g_nodes.size(); i++){
@@ -60,19 +62,66 @@ int find_nearest_node(nav_msgs::Point point){
   	return minNode;
 }
 
-std::vec<int> solve(int start, int goal){
+std::vec<node> solve(int start, int goal){
 	clear_visited();
-	std::vec<nodes> visited(g_nodes.size());
-	std::vec<double> costs(g_nodes.size());
-	costs[start]=0;
-	costs.fill(9999999999999999);
+	std::vec<node> visited(g_nodes.size());
 	int index=start;
 	node curr=new node;
-	while(!empty(g_nodes){
+	bool all_inf=false;
+	//Runs until all nodes are moved to visited;
+	while(!empty(g_nodes&&!all_inf){
+		//sets up the node being checked as a temp node
 		curr=&g_nodes[index];
+		//finds the costs for all the nodes the current node goes to;
 		for(int i=0; i<curr.to.size();i++){
-			curr.to[i].cost=cost(index,curr.to[i]);
+			double cost=cost(index,curr.to[i])+curr.cost;
+			if(cost<curr.to[i].cost){
+				curr.to[i].cost=cost;
+				curr.best_from=curr.to[i];
+				}
+			}
+			//moves the current node to visited, takes it out of index
+			visited[index]=curr;
+			g_nodes.erase(index);
+			double lowest=std::numeric_limits<double>::max();;
+			int lowestind=-1;
+			//looks for the lowest distance node, checks that all are not max
+			//if they are, ends the loop
+			for(int j=0;j<g_nodes.size();j++){
+				if(g_nodes[j].cost<lowest){
+					lowestind=j;
+					lowest=g_nodes[j].cost;
+				}
+			}
+			if(lowest==std::numeric_limits<double>::max()){
+				all_inf=true;
+			}
+			index=lowestind;
 		}
+		/*what I am about to do is kind of stupid.
+		 Since I don't know that the index in visited will match the index of the node
+		 I am looping through to find the goal node, then looping to find
+		 each nodes best_from until I find the start.
+		 Eventually, the solution would probably be to use something that 
+		 allows for the index of the node to always be the index in the datastructure
+		 would improve speed significantly.
+		 I might need to do this anyways because I think I will run into problems with
+		 how the initial loop works
+		 I will change to this tonight 4-25-16 QCK
+		*/
+		bool wasFound=false;
+		int i=0;
+		//finds starting index
+		while(!wasFound && i<visited.size()){
+			if(visited[i].index==goal){
+				wasFound=true;
+				index=i;
+			}
+		}
+		while(visited[index].index!=start){
+			visited[index].best_from
+		}
+		
 	}
 }
 double cost(int from, int to){

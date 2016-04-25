@@ -1,4 +1,4 @@
-string name
+int index
 geometry_msgs::Pose pose
-string[] goes_to
+int[] goes_to
 

@@ -20,9 +20,9 @@ struct Node{
 	double cost;
 	std::vector<int> to;
 	int best_from;
-	Node(std:string n="",double nx=0, double ny=0,
+	Node(std::string n="",double nx=0, double ny=0,
 	double c=std::numeric_limits<double>::max(),
-	std::vector<int> t,int b=-1):
+	std::vector<int> t=std::vector<int>(),int b=-1):
 	name(n), x(nx), y(ny), cost(c), to(t), best_from(b){}
 };
 
@@ -32,20 +32,21 @@ bool got_alexa_code=false;
 int alexa_code=-1;
 
 void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) { 
-  int num_nodes = graph->nodes.size;
+  int num_nodes = graph->nodes.size();
   g_nodes.clear();
   for (int i=0;i<num_nodes;i++) {
     int index=i;
-    Node tmp=new Node();
+    Node tmp;
     tmp.name=graph->nodes[i].name.data;
-    tmp.point=graph->nodes[i].point;
+    tmp.x=graph->nodes[i].point.x;
+    tmp.y=graph->nodes[i].point.y;
     tmp.best_from=-1;
     tmp.cost=std::numeric_limits<double>::max();
     tmp.to.resize(graph->nodes[i].goes_to.data.size());
-    for(int j=0;j<graph->nodes[i].goes_to.size();j++){
-    		tmp.to[i]=graph->nodes[i].goes_to[j];
+    for(int j=0;j<graph->nodes[i].goes_to.data.size();j++){
+    		tmp.to[j]=graph->nodes[i].goes_to.data[j];
     	}
-    	g_nodes.insert(index,tmp);
+    	g_nodes[i]=tmp;
     }
 }
 
@@ -54,18 +55,18 @@ int find_nearest_node(double x, double y){
  	double mindist=std::numeric_limits<double>::max();
 
   	for (it=g_nodes.begin(); it!=g_nodes.end(); ++it){
-  		double x_tmp=it->second.pose.position.x;
-  		double y_tmp=it->second.position.y;
+  		double x_tmp=it->second.x;
+  		double y_tmp=it->second.y;
   		double currdist=sqrt(pow(x-x_tmp,2)+pow(y-y_tmp,2));
   		if(currdist<mindist){
-  			min_node=i;
+  			min_node=it->first;
   		}
 
   	}
   	return min_node;
 }
 
-vector<int> solve(int start, int goal){
+std::vector<int> solve(int start, int goal){
 	clear_visited();
 	std::map<int, Node> visited;
 	std::map<int, Node> graph=g_nodes;
@@ -126,7 +127,7 @@ vector<int> solve(int start, int goal){
 	}	
 }
 void create_path(int start, int end){
-	vector<int> keys=solve(start, end);
+	std::vector<int> keys=solve(start, end);
 	while(!keys.empty()){
 			//put code from pub_des_state_client here to create path from Poses in the nodes attached to the keys I have
 	}
@@ -134,15 +135,17 @@ void create_path(int start, int end){
 
 double cost(int from, int to){
 	it=g_nodes.find(from);
+	Node toNode;
+	Node fromNode;
 	if(it!=g_nodes.end()){
-		Node fromNode=it->second;
+		fromNode=it->second;
 	}
 	it=g_nodes.find(to);
 	if(it!=g_nodes.end()){
-		Node toNode=it->second;
+		toNode=it->second;
 	}
-	double deltx=toNode.point.x-fromNode.point.x;
-	double delty=toNode.point.y-fromNode.point.y;
+	double deltx=toNode.x-fromNode.x;
+	double delty=toNode.y-fromNode.y;
 	return sqrt((pow(deltx,2))+pow(delty,2));
 }
 
@@ -155,30 +158,32 @@ bool contains(int key, std::map<int,Node> map){
 		return false;
 	}
 }
-/*
+
 void alexaCB(const std_msgs::UInt32& code_msg) {
     int alexa_code = code_msg.data;
     ROS_INFO("received Alexa code: %d", alexa_code);
-    if (alexa_code= ALEXA_GET_COKE_CODE) {
-      g_get_coke_trigger = true;
+    if(g_nodes.contains(alexa_code) {
+      got_alexa_code=true
     }
 }
-*/
 int main(int argc, char **argv) {
     ros::init(argc, argv, "graph_solver");
     ros::NodeHandle nh;
-    g_nodes=new map<int,Node>;
     g_path_publisher= nh.advertise<nav_msgs::Path>("/graph_path", 1); 
     ros::Subscriber graph_sub = nh.subscribe("/graph",1,graph_CB); 
     ros::Subscriber alexa_code = nh.subscribe("/Alexa_codes", 1, alexaCB);
-    /*
     while(ros::ok()) {
-    	if (!g_get_coke_trigger) {
+    	if (!got_alexa_code) {
         	ros::Duration(0.5).sleep();
         	ros::spinOnce();    
     	}else{
-        	g_get_coke_trigger=false; // reset the trigger
+        	got_alexa_code=false; // reset the trigger
+        	//TODO add a publisher to get the current map coordinates
+        	double mapx=0;
+        	double mapy=0;
+        	int start_ind = find_nearest_node(mapx,mapy);
+        	create_path(start_ind,alexa_code);
+        	alexa_code=-1;
     	}
 	}
-*/
 }

@@ -10,8 +10,12 @@
 #include <vector>
 #include <string>
 #include <sstream>
-//TODO  Create method pathfromvec that converts from the vec of indexes to a path of poses
 
+/*TODO  Test that djikstra's works with a loop in the nodes, might segfault
+TODO  Modify pub_des_state to work off of map_frame from amcl
+TODO  Run gazebo with the map of the lab, run amcl kit, check whether 
+		the output matches what I am expecting
+*/
 struct Node{
 	std::string name;
 	double x;
@@ -32,6 +36,8 @@ bool got_alexa_code=false;
 bool has_nodes;
 int code=-1;
 ros::Publisher g_path_publisher;
+double mapx_offset;
+double mapy_offset;
 
 
 double get_cost(int from, int to){
@@ -92,7 +98,9 @@ int find_nearest_node(double x, double y){
   		double y_tmp=it->second.y;
   		double currdist=sqrt(pow(x-x_tmp,2)+pow(y-y_tmp,2));
   		if(currdist<mindist){
+  			ROS_INFO("dists. are %f and %f so %d", currdist,mindist,min_node);
   			min_node=it->first;
+  			mindist=currdist;
   		}
 
   	}
@@ -107,8 +115,14 @@ std::vector<int> solve(int start, int goal){
 	Node curr;
 	bool all_inf=false;
 	//Runs until all nodes are moved to visited;
+
 	int num_nodes=graph.size();
 	while(num_nodes!=0){
+				if(index==-1){
+			ROS_INFO("NO PATH FOUND, SORRY DAD");
+			std::vector<int> broken_arrow;
+			return broken_arrow;
+		}
 		ROS_INFO("Looper was a great film");
 		//sets up the node being checked as a temp node
 		ROS_INFO("curr ind: %d",index);
@@ -179,11 +193,10 @@ std::vector<int> solve(int start, int goal){
 
 
 void alexaCB(const std_msgs::UInt32& code_msg) {
+	ros::Duration(0.5).sleep();
     code = code_msg.data;
     ROS_INFO("received Alexa code: %d", code);
-    if(contains(code,g_nodes)) {
       got_alexa_code=true;
-    }
 }
 void create_path(int start, int end){
 	std::vector<int> keys=solve(start, end);
@@ -201,6 +214,7 @@ void create_path(int start, int end){
 		pose.pose.position=point;
 		path.poses.push_back(pose);
 	}
+	g_path_publisher.publish(path);
 }
 
 void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
@@ -225,7 +239,6 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
     	}
     	g_nodes[i]=tmp;
     }
-    create_path(0,3);
     print_nodes(g_nodes);
 }
 
@@ -235,16 +248,21 @@ int main(int argc, char **argv) {
     g_path_publisher= nh.advertise<nav_msgs::Path>("/graph_path", 1); 
     ros::Subscriber graph_sub = nh.subscribe("/graph",1,graph_CB); 
     ros::Subscriber alexa_code = nh.subscribe("/Alexa_codes", 1, alexaCB);
+    /*
+    ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose",1,amclCB); 
+    */
+
     while(ros::ok()) {
     	if (!got_alexa_code&&!has_nodes) {
         	ros::Duration(0.5).sleep();
         	ros::spinOnce();    
     	}else{
         	got_alexa_code=false; // reset the trigger
-        	//TODO add a publisher to get the current map coordinates
         	double mapx=0;
         	double mapy=0;
         	int start_ind = find_nearest_node(mapx,mapy);
+        	code-=10000;
+        	ROS_INFO("Trying to path from %d to %d",start_ind,code);
         	create_path(start_ind,code);
         	code=-1;
     	}

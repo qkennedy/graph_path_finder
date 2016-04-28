@@ -26,6 +26,7 @@ struct Node{
 };
 
 std::map<int,Node> g_nodes;
+std::map<int, Node> visited;
 std::map<int,Node>::iterator it;
 bool got_alexa_code=false;
 bool has_nodes;
@@ -58,10 +59,10 @@ bool contains(int key, std::map<int,Node> map){
 		return false;
 	}
 }
-void print_nodes(){
+void print_nodes(std::map<int,Node> map){
 	ROS_INFO("Beginning Node Print");
 	Node curr;
-	for(it=g_nodes.begin(); it!=g_nodes.end(); ++it){
+	for(it=map.begin(); it!=map.end(); ++it){
 		curr=it->second;
 		ROS_INFO("Index # %d Name:%s",it->first,curr.name.c_str());
 		ROS_INFO("Point  ( %f , %f )",curr.x,curr.y);
@@ -99,8 +100,9 @@ int find_nearest_node(double x, double y){
 }
 
 std::vector<int> solve(int start, int goal){
-	std::map<int, Node> visited;
+	visited.clear();
 	std::map<int, Node> graph=g_nodes;
+	graph[start].cost=0;
 	int index=start;
 	Node curr;
 	bool all_inf=false;
@@ -113,30 +115,25 @@ std::vector<int> solve(int start, int goal){
 		curr=graph.find(index)->second;
 		//finds the costs for all the nodes the current node goes to;
 		for(int i=0; i<curr.to.size();i++){
-			ROS_INFO("Made it in");
 			double addcost=get_cost(index,curr.to[i]);
 			double cost= addcost+curr.cost;
 			double oldcost;
-			ROS_INFO("got costs");
-			it=g_nodes.find(curr.to[i]);
-			ROS_INFO("find worked");
-			if(it!=g_nodes.end()){
+			it=graph.find(curr.to[i]);
+			if(it!=graph.end()){
+
 				oldcost=it->second.cost;
 			}
 			if(cost<oldcost){
 				it->second.cost=cost;
-				curr.best_from=curr.to[i];
+				it->second.best_from=index;
 			}
 		}
 		//moves the current node to visited, takes it out of index
-		ROS_INFO("out of the first cost reset");
-		print_nodes();
 		visited[index]=curr;
 		it=graph.find(index);
 		if(it!=graph.end()){
 		graph.erase(it);
 		num_nodes=graph.size();
-		ROS_INFO("First erase is good!");
 		}
 
 		double lowest=std::numeric_limits<double>::max();
@@ -154,29 +151,30 @@ std::vector<int> solve(int start, int goal){
 		}
 		index=lowestind;
 	}	
-	if(contains(goal,visited)){
+	ROS_INFO("WE MADE IT BOYS");
+	print_nodes(visited);
+		ROS_INFO("Contains did nothing wrong!");
 		std::vector<int> path_keys;
 		it=visited.find(goal);
 		bool looped=false;
 		//this loop starts at the goal node, keeps checking the best node to come from
 		//until it gets to the starting index or finds it has entered a loop
 		int last=-1;
-		while(it->first!=start&&!looped){
+		ROS_INFO("above loop");
+		while(it->first!=start){
 			path_keys.push_back(it->first);
+			ROS_INFO("pushed %d",it->first);
 			it=visited.find(it->second.best_from);
-			if(last=it->first){
-				looped=true;
-			}
-			last=it->first;
 		 	}
-		if(!looped){
+		if(it->first==start){
+			path_keys.push_back(start);
+			ROS_INFO("trying to return");
 		 	return path_keys;
 		}else{
 		 	ROS_INFO("WE'VE HIT A MINE");
 		 	std::vector<int> broken_arrow;
 		 	return broken_arrow;
 		}	
-	}	
 }
 
 
@@ -187,6 +185,24 @@ void alexaCB(const std_msgs::UInt32& code_msg) {
       got_alexa_code=true;
     }
 }
+void create_path(int start, int end){
+	std::vector<int> keys=solve(start, end);
+	nav_msgs::Path path;
+	geometry_msgs::Point point;
+	geometry_msgs::PoseStamped pose;
+	Node curr;
+	std::vector<int>::reverse_iterator vecit;
+	for ( vecit= keys.rbegin() ; vecit != keys.rend(); ++vecit){
+		int ind=keys[*vecit];
+		curr = visited.find(ind)->second;
+		ROS_INFO("Adding to Path: n = %s at (%f,%f)",curr.name.c_str(),curr.x,curr.y);
+		point.x=curr.x;
+		point.y=curr.y;
+		pose.pose.position=point;
+		path.poses.push_back(pose);
+	}
+}
+
 void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
 	ROS_INFO("entering Graph_CB"); 
 	int num_nodes = graph->nodes.size();
@@ -209,14 +225,8 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
     	}
     	g_nodes[i]=tmp;
     }
-    solve(0,3);
-    print_nodes();
-}
-void create_path(int start, int end){
-	std::vector<int> keys=solve(start, end);
-	while(!keys.empty()){
-			//put code from pub_des_state_client here to create path from Poses in the nodes attached to the keys I have
-	}
+    create_path(0,3);
+    print_nodes(g_nodes);
 }
 
 int main(int argc, char **argv) {

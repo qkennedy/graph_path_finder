@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(graph_path_solver)
+project(graph_path_finder)
 
 find_package(catkin_simple REQUIRED)
 

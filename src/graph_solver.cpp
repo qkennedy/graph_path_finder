@@ -8,8 +8,8 @@
 #include <graph_path_finder/GNode.h>//include .h file for GNode and Graph?
 #include <graph_path_finder/Graph.h>
 #include <vector>
-
-//TODO: Switch from  
+#include <string>
+#include <sstream>
 //TODO  Create method pathfromvec that converts from the vec of indexes to a path of poses
 
 struct Node{
@@ -28,6 +28,7 @@ struct Node{
 std::map<int,Node> g_nodes;
 std::map<int,Node>::iterator it;
 bool got_alexa_code=false;
+bool has_nodes;
 int code=-1;
 ros::Publisher g_path_publisher;
 
@@ -57,26 +58,30 @@ bool contains(int key, std::map<int,Node> map){
 		return false;
 	}
 }
-
-void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) { 
-  int num_nodes = graph->nodes.size();
-  g_nodes.clear();
-  for (int i=0;i<num_nodes;i++) {
-    int index=i;
-    Node tmp;
-    tmp.name=graph->nodes[i].name.data;
-    tmp.x=graph->nodes[i].point.x;
-    tmp.y=graph->nodes[i].point.y;
-    tmp.best_from=-1;
-    tmp.cost=std::numeric_limits<double>::max();
-    tmp.to.resize(graph->nodes[i].goes_to.data.size());
-    for(int j=0;j<graph->nodes[i].goes_to.data.size();j++){
-    		tmp.to[j]=graph->nodes[i].goes_to.data[j];
-    	}
-    	g_nodes[i]=tmp;
-    }
+void print_nodes(){
+	ROS_INFO("Beginning Node Print");
+	Node curr;
+	for(it=g_nodes.begin(); it!=g_nodes.end(); ++it){
+		curr=it->second;
+		ROS_INFO("Index # %d Name:%s",it->first,curr.name.c_str());
+		ROS_INFO("Point  ( %f , %f )",curr.x,curr.y);
+		std::string to_nodes;
+		std::ostringstream oss;
+		oss << "Pointing to:  ";
+		for(int i=0; i<curr.to.size();i++){
+			oss<<curr.to[i]<<", ";
+		}
+		to_nodes=oss.str();
+		ROS_INFO("%s",to_nodes.c_str());
+		if(curr.cost==std::numeric_limits<double>::max()){
+			ROS_INFO("cost=inf");	
+		}else{
+			ROS_INFO("cost=%f",curr.cost);
+		}
+		ROS_INFO("best from: %d",curr.best_from);
+	}
+	ROS_INFO("ENDING STREAM");
 }
-
 int find_nearest_node(double x, double y){
 	int min_node=-1;
  	double mindist=std::numeric_limits<double>::max();
@@ -108,8 +113,8 @@ std::vector<int> solve(int start, int goal){
 			double addcost=get_cost(index,curr.to[i]);
 			double cost= addcost+curr.cost;
 			double oldcost;
-			it=graph.find(curr.to[i]);
-			if(it!=graph.end()){
+			it=g_nodes.find(curr.to[i]);
+			if(it!=g_nodes.end()){
 				oldcost=it->second.cost;
 			}
 			if(cost<oldcost){
@@ -171,6 +176,30 @@ void alexaCB(const std_msgs::UInt32& code_msg) {
       got_alexa_code=true;
     }
 }
+void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
+	ROS_INFO("entering Graph_CB"); 
+	int num_nodes = graph->nodes.size();
+  	ROS_INFO("received: %d nodes",num_nodes); 
+  	g_nodes.clear();
+  	for (int i=0;i<num_nodes;i++) {
+  		ROS_INFO("Looping through the nodes");
+    	int index=i;
+    	Node tmp;
+    	tmp.name=graph->nodes[i].name.data;
+    	ROS_INFO("name:%s",tmp.name.c_str()); 
+    	tmp.x=graph->nodes[i].point.x;
+    	tmp.y=graph->nodes[i].point.y;
+    	ROS_INFO("coord= (%f,%f)",tmp.x,tmp.y);
+    	tmp.best_from=-1;
+    	tmp.cost=std::numeric_limits<double>::max();
+    	tmp.to.resize(graph->nodes[i].goes_to.data.size());
+    	for(int j=0;j<graph->nodes[i].goes_to.data.size();j++){
+    		tmp.to[j]=graph->nodes[i].goes_to.data[j];
+    	}
+    	g_nodes[i]=tmp;
+    }
+    print_nodes();
+}
 void create_path(int start, int end){
 	std::vector<int> keys=solve(start, end);
 	while(!keys.empty()){
@@ -185,7 +214,7 @@ int main(int argc, char **argv) {
     ros::Subscriber graph_sub = nh.subscribe("/graph",1,graph_CB); 
     ros::Subscriber alexa_code = nh.subscribe("/Alexa_codes", 1, alexaCB);
     while(ros::ok()) {
-    	if (!got_alexa_code) {
+    	if (!got_alexa_code&&!has_nodes) {
         	ros::Duration(0.5).sleep();
         	ros::spinOnce();    
     	}else{

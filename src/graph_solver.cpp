@@ -105,15 +105,21 @@ std::vector<int> solve(int start, int goal){
 	Node curr;
 	bool all_inf=false;
 	//Runs until all nodes are moved to visited;
-	while(!graph.empty()&&!all_inf){
+	int num_nodes=graph.size();
+	while(num_nodes!=0){
+		ROS_INFO("Looper was a great film");
 		//sets up the node being checked as a temp node
+		ROS_INFO("curr ind: %d",index);
 		curr=graph.find(index)->second;
 		//finds the costs for all the nodes the current node goes to;
 		for(int i=0; i<curr.to.size();i++){
+			ROS_INFO("Made it in");
 			double addcost=get_cost(index,curr.to[i]);
 			double cost= addcost+curr.cost;
 			double oldcost;
+			ROS_INFO("got costs");
 			it=g_nodes.find(curr.to[i]);
+			ROS_INFO("find worked");
 			if(it!=g_nodes.end()){
 				oldcost=it->second.cost;
 			}
@@ -123,11 +129,16 @@ std::vector<int> solve(int start, int goal){
 			}
 		}
 		//moves the current node to visited, takes it out of index
+		ROS_INFO("out of the first cost reset");
+		print_nodes();
 		visited[index]=curr;
 		it=graph.find(index);
 		if(it!=graph.end()){
 		graph.erase(it);
+		num_nodes=graph.size();
+		ROS_INFO("First erase is good!");
 		}
+
 		double lowest=std::numeric_limits<double>::max();
 		int lowestind=-1;
 		//looks for the lowest distance node, checks that all are not max
@@ -198,6 +209,7 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
     	}
     	g_nodes[i]=tmp;
     }
+    solve(0,3);
     print_nodes();
 }
 void create_path(int start, int end){

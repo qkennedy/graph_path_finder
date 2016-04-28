@@ -75,6 +75,39 @@ void threeNodeDummy(){
     ROS_INFO("Number of Nodes should be 3, is %d",size);
     graph_pub.publish(graph);
 }
+void real_graph(){
+    graph.nodes.clear();
+    node.name.data="Zero";
+    geometry_msgs::Point point;
+    point.x=0;
+    point.y=0;
+    node.point=point;
+    std_msgs::Int32MultiArray array;
+    array.data.push_back(1);
+    array.data.push_back(2);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="One";
+    node.point.x=1;
+    node.point.y=1;
+    array.data.clear();
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="Two";
+    node.point.x=0;
+    node.point.y=3;
+    array.data.clear();
+    array.data.push_back(3);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="Three";
+    node.point.x=4;
+    node.point.y=3;
+    array.data.clear();
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    graph_pub.publish(graph);
+}
 int main(int argc, char **argv) {
     ros::init(argc, argv, "graph_publisher"); // name of this node will be "minimal_publisher"
     ros::NodeHandle n; // two lines to create a publisher object that can talk to ROS
@@ -91,7 +124,7 @@ int main(int argc, char **argv) {
         }else if(in_name.compare("2")==0){
             threeNodeDummy();
         }else if(in_name.compare("3")==0){
-            ROS_INFO("NOT YET IMPLEMENTED, STAY TUNED");
+            real_graph();
         }
     }
 }

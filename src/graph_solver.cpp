@@ -2,10 +2,9 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <geometry_msgs/Pose.h>
 #include <nav_msgs/Path.h>
+#include <std_msgs/UInt32.h>
 #include <string.h>
-#include <stdio.h>  
 #include <math.h>
-#include <random>
 #include <graph_path_finder/GNode.h>//include .h file for GNode and Graph?
 #include <graph_path_finder/Graph.h>
 #include <vector>
@@ -29,7 +28,35 @@ struct Node{
 std::map<int,Node> g_nodes;
 std::map<int,Node>::iterator it;
 bool got_alexa_code=false;
-int alexa_code=-1;
+int code=-1;
+ros::Publisher g_path_publisher;
+
+
+double get_cost(int from, int to){
+	it=g_nodes.find(from);
+	Node toNode;
+	Node fromNode;
+	if(it!=g_nodes.end()){
+		fromNode=it->second;
+	}
+	it=g_nodes.find(to);
+	if(it!=g_nodes.end()){
+		toNode=it->second;
+	}
+	double deltx=toNode.x-fromNode.x;
+	double delty=toNode.y-fromNode.y;
+	return sqrt((pow(deltx,2))+pow(delty,2));
+}
+
+
+bool contains(int key, std::map<int,Node> map){
+	for(it=map.begin(); it!=map.end(); it++){
+		if(it->first==key){
+			return true;
+		}
+		return false;
+	}
+}
 
 void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) { 
   int num_nodes = graph->nodes.size();
@@ -67,34 +94,41 @@ int find_nearest_node(double x, double y){
 }
 
 std::vector<int> solve(int start, int goal){
-	clear_visited();
 	std::map<int, Node> visited;
 	std::map<int, Node> graph=g_nodes;
 	int index=start;
-	Node curr=new Node;
+	Node curr;
 	bool all_inf=false;
 	//Runs until all nodes are moved to visited;
 	while(!graph.empty()&&!all_inf){
 		//sets up the node being checked as a temp node
-		curr=&graph.find(index)->second;
+		curr=graph.find(index)->second;
 		//finds the costs for all the nodes the current node goes to;
 		for(int i=0; i<curr.to.size();i++){
-			double cost=cost(index,curr.to[i])+curr.cost;
-			if(cost<curr.to[i].cost){
-				curr.to[i].cost=cost;
+			double addcost=get_cost(index,curr.to[i]);
+			double cost= addcost+curr.cost;
+			double oldcost;
+			it=graph.find(curr.to[i]);
+			if(it!=graph.end()){
+				oldcost=it->second.cost;
+			}
+			if(cost<oldcost){
+				it->second.cost=cost;
 				curr.best_from=curr.to[i];
 			}
 		}
 		//moves the current node to visited, takes it out of index
-		visited.add(index,curr);
+		visited[index]=curr;
 		it=graph.find(index);
+		if(it!=graph.end()){
 		graph.erase(it);
+		}
 		double lowest=std::numeric_limits<double>::max();
 		int lowestind=-1;
 		//looks for the lowest distance node, checks that all are not max
 		//if they are, ends the loop
 		for (it=graph.begin(); it!=graph.end(); ++it){
-			if(graph->second.cost<lowest){
+			if(it->second.cost<lowest){
 				lowestind=it->first;
 				lowest=it->second.cost;
 			}
@@ -105,26 +139,37 @@ std::vector<int> solve(int start, int goal){
 		index=lowestind;
 	}	
 	if(contains(goal,visited)){
-		vector<int> path_keys;
+		std::vector<int> path_keys;
 		it=visited.find(goal);
 		bool looped=false;
 		//this loop starts at the goal node, keeps checking the best node to come from
 		//until it gets to the starting index or finds it has entered a loop
-		while(it!=start&&!looped){
+		int last=-1;
+		while(it->first!=start&&!looped){
 			path_keys.push_back(it->first);
 			it=visited.find(it->second.best_from);
 			if(last=it->first){
 				looped=true;
 			}
-			int last=it->first;
+			last=it->first;
 		 	}
 		if(!looped){
 		 	return path_keys;
 		}else{
 		 	ROS_INFO("WE'VE HIT A MINE");
-		 	return new vector<int>;
+		 	std::vector<int> broken_arrow;
+		 	return broken_arrow;
 		}	
 	}	
+}
+
+
+void alexaCB(const std_msgs::UInt32& code_msg) {
+    code = code_msg.data;
+    ROS_INFO("received Alexa code: %d", code);
+    if(contains(code,g_nodes)) {
+      got_alexa_code=true;
+    }
 }
 void create_path(int start, int end){
 	std::vector<int> keys=solve(start, end);
@@ -133,39 +178,6 @@ void create_path(int start, int end){
 	}
 }
 
-double cost(int from, int to){
-	it=g_nodes.find(from);
-	Node toNode;
-	Node fromNode;
-	if(it!=g_nodes.end()){
-		fromNode=it->second;
-	}
-	it=g_nodes.find(to);
-	if(it!=g_nodes.end()){
-		toNode=it->second;
-	}
-	double deltx=toNode.x-fromNode.x;
-	double delty=toNode.y-fromNode.y;
-	return sqrt((pow(deltx,2))+pow(delty,2));
-}
-
-
-bool contains(int key, std::map<int,Node> map){
-	for(it=map.begin(); it!=map.end(); it++){
-		if(it->first==key){
-			return true;
-		}
-		return false;
-	}
-}
-
-void alexaCB(const std_msgs::UInt32& code_msg) {
-    int alexa_code = code_msg.data;
-    ROS_INFO("received Alexa code: %d", alexa_code);
-    if(g_nodes.contains(alexa_code) {
-      got_alexa_code=true
-    }
-}
 int main(int argc, char **argv) {
     ros::init(argc, argv, "graph_solver");
     ros::NodeHandle nh;
@@ -182,8 +194,8 @@ int main(int argc, char **argv) {
         	double mapx=0;
         	double mapy=0;
         	int start_ind = find_nearest_node(mapx,mapy);
-        	create_path(start_ind,alexa_code);
-        	alexa_code=-1;
+        	create_path(start_ind,code);
+        	code=-1;
     	}
 	}
 }

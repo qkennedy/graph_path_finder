@@ -121,7 +121,6 @@ void simple_looped(){
     node.point=point;
     std_msgs::Int32MultiArray array;
     array.data.push_back(1);
-    array.data.push_back(2);
     node.goes_to=array;
     graph.nodes.push_back(node);
     node.name.data="One";
@@ -133,7 +132,71 @@ void simple_looped(){
     graph.nodes.push_back(node);
     graph_pub.publish(graph);
     std_msgs::UInt32 msg;
-    msg.data=10003;
+    msg.data=10001;
+    alexa_spoof.publish(msg);
+}
+void hyper_loop(){
+    graph.nodes.clear();
+    node.name.data="Zero";
+    geometry_msgs::Point point;
+    point.x=0;
+    point.y=0;
+    node.point=point;
+    std_msgs::Int32MultiArray array;
+    array.data.push_back(1);
+    array.data.push_back(2);
+    array.data.push_back(4);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="One";
+    node.point.x=1;
+    node.point.y=1;
+    array.data.clear();
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+
+    node.name.data="Two";
+    node.point.x=0;
+    node.point.y=3;
+    array.data.clear();
+    array.data.push_back(3);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+
+    node.name.data="Three";
+    node.point.x=4;
+    node.point.y=3;
+    array.data.clear();
+    array.data.push_back(6);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+
+    node.name.data="Four";
+    node.point.x=-1;
+    node.point.y=-1;
+    array.data.clear();
+    array.data.push_back(5);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+
+    node.name.data="Five";
+    node.point.x=0.5;
+    node.point.y=-0.5;
+    array.data.clear();
+    array.data.push_back(6);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+
+    node.name.data="Six";
+    node.point.x=4;
+    node.point.y=-0.5;
+    array.data.clear();
+    array.data.push_back(1);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    graph_pub.publish(graph);
+    std_msgs::UInt32 msg;
+    msg.data=10006;
     alexa_spoof.publish(msg);
 }
 
@@ -144,7 +207,7 @@ int main(int argc, char **argv) {
     alexa_spoof = n.advertise<std_msgs::UInt32>("/Alexa_codes", 1);
     while (ros::ok()) {
         cout<<endl;
-        cout << "enter a number \n 1:Rand 1 Node \n 2:Rand 3 Nodes \n 3: real 4 node graph \n 4:ShortLoop \n (x to quit): ";
+        cout << "enter a number \n 1:Rand 1 Node \n 2:Rand 3 Nodes \n 3: real 4 node graph \n 4:ShortLoop \n 5:Hyperloop (7 nodes, multiple loops) (x to quit): ";
         std::string in_name;
         cin>>in_name;
         if (in_name.compare("x")==0){
@@ -157,6 +220,8 @@ int main(int argc, char **argv) {
             real_graph();
         }else if(in_name.compare("4")==0){
             simple_looped();
+        }else if(in_name.compare("5")==0){
+            hyper_loop();
         }
     }
 }

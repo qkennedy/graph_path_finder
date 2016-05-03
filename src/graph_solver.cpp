@@ -38,6 +38,8 @@ int code=-1;
 ros::Publisher g_path_publisher;
 double mapx_offset;
 double mapy_offset;
+geometry_msgs::Pose odom_pose;
+geometry_msgs::Pose map_pose;
 
 
 double get_cost(int from, int to){
@@ -206,11 +208,12 @@ void create_path(int start, int end){
 	Node curr;
 	std::vector<int>::reverse_iterator vecit;
 	for ( vecit= keys.rbegin() ; vecit != keys.rend(); ++vecit){
-		int ind=keys[*vecit];
+		int ind=*vecit;
 		curr = visited.find(ind)->second;
 		ROS_INFO("Adding to Path: n = %s at (%f,%f)",curr.name.c_str(),curr.x,curr.y);
-		point.x=curr.x;
-		point.y=curr.y;
+		point.x=curr.x+mapx_offset;
+		point.y=curr.y+mapy_offset;
+		ROS_INFO("Converts to Point (%f,%f) in the odom_frame",point.x,point.y);
 		pose.pose.position=point;
 		path.poses.push_back(pose);
 	}
@@ -241,6 +244,15 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
     }
     print_nodes(g_nodes);
 }
+void odomCB(const geometry_msgs::Pose& pose) {
+	odom_pose=pose;
+}
+void amclCB(const geometry_msgs::Pose& pose) {
+	map_pose=pose;
+	mapx_offset=map_pose.position.x;
+	mapy_offset=map_pose.position.y;
+}
+
 
 int main(int argc, char **argv) {
     ros::init(argc, argv, "graph_solver");
@@ -248,9 +260,8 @@ int main(int argc, char **argv) {
     g_path_publisher= nh.advertise<nav_msgs::Path>("/graph_path", 1); 
     ros::Subscriber graph_sub = nh.subscribe("/graph",1,graph_CB); 
     ros::Subscriber alexa_code = nh.subscribe("/Alexa_codes", 1, alexaCB);
-    /*
+    ros::Subscriber odom_sub = nh.subscribe("/odom", 1, odomCB);
     ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose",1,amclCB); 
-    */
 
     while(ros::ok()) {
     	if (!got_alexa_code&&!has_nodes) {
@@ -260,6 +271,8 @@ int main(int argc, char **argv) {
         	got_alexa_code=false; // reset the trigger
         	double mapx=0;
         	double mapy=0;
+        	mapx=mapx_offset;
+        	mapy=mapy_offset;
         	int start_ind = find_nearest_node(mapx,mapy);
         	code-=10000;
         	ROS_INFO("Trying to path from %d to %d",start_ind,code);

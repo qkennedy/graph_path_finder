@@ -1,15 +1,17 @@
 #include <ros/ros.h> 
-#include <gazebo_msgs/ModelStates.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <std_msgs/UInt32.h>
-#include <string.h>
-#include <math.h>
 #include <graph_path_finder/GNode.h>//include .h file for GNode and Graph?
 #include <graph_path_finder/Graph.h>
+#include <alpha_mobot_pub_des_state/path.h>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <string.h>
+#include <math.h>
 
 /*TODO  Test that djikstra's works with a loop in the nodes, might segfault
 TODO  Modify pub_des_state to work off of map_frame from amcl
@@ -29,6 +31,8 @@ struct Node{
 	name(n), x(nx), y(ny), cost(c), to(t), best_from(b){}
 };
 
+
+ros::ServiceClient client;
 std::map<int,Node> g_nodes;
 std::map<int, Node> visited;
 std::map<int,Node>::iterator it;
@@ -40,6 +44,8 @@ double mapx_offset;
 double mapy_offset;
 geometry_msgs::Pose odom_pose;
 geometry_msgs::Pose map_pose;
+
+
 
 
 double get_cost(int from, int to){
@@ -93,6 +99,7 @@ void print_nodes(std::map<int,Node> map){
 }
 int find_nearest_node(double x, double y){
 	int min_node=-1;
+	Node best;
  	double mindist=std::numeric_limits<double>::max();
 
   	for (it=g_nodes.begin(); it!=g_nodes.end(); ++it){
@@ -100,12 +107,13 @@ int find_nearest_node(double x, double y){
   		double y_tmp=it->second.y;
   		double currdist=sqrt(pow(x-x_tmp,2)+pow(y-y_tmp,2));
   		if(currdist<mindist){
-  			ROS_INFO("dists. are %f and %f so %d", currdist,mindist,min_node);
   			min_node=it->first;
   			mindist=currdist;
+  			best=it->second;
   		}
 
   	}
+  	ROS_INFO("starting from node= %d (%f,%f) currently at (%f,%f)",min_node, best.x,best.y,x,y);
   	return min_node;
 }
 
@@ -202,22 +210,27 @@ void alexaCB(const std_msgs::UInt32& code_msg) {
 }
 void create_path(int start, int end){
 	std::vector<int> keys=solve(start, end);
-	nav_msgs::Path path;
+	alpha_mobot_pub_des_state::path path_srv;
 	geometry_msgs::Point point;
 	geometry_msgs::PoseStamped pose;
 	Node curr;
 	std::vector<int>::reverse_iterator vecit;
 	for ( vecit= keys.rbegin() ; vecit != keys.rend(); ++vecit){
 		int ind=*vecit;
+		ROS_INFO("%d",ind);
 		curr = visited.find(ind)->second;
 		ROS_INFO("Adding to Path: n = %s at (%f,%f)",curr.name.c_str(),curr.x,curr.y);
-		point.x=curr.x+mapx_offset;
-		point.y=curr.y+mapy_offset;
-		ROS_INFO("Converts to Point (%f,%f) in the odom_frame",point.x,point.y);
+		point.x=curr.x;
+		point.y=curr.y;
 		pose.pose.position=point;
-		path.poses.push_back(pose);
+		path_srv.request.path.poses.push_back(pose);
 	}
-	g_path_publisher.publish(path);
+	while (!client.exists()) {
+      ROS_INFO("waiting for service...");
+      ros::Duration(1.0).sleep();
+    }
+    ROS_INFO("connected client to service");
+    client.call(path_srv);
 }
 
 void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
@@ -244,13 +257,14 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
     }
     print_nodes(g_nodes);
 }
-void odomCB(const geometry_msgs::Pose& pose) {
-	odom_pose=pose;
+void odomCB(const nav_msgs::Odometry& odom) {
+	odom_pose=odom.pose.pose;
 }
-void amclCB(const geometry_msgs::Pose& pose) {
-	map_pose=pose;
+void amclCB(const geometry_msgs::PoseWithCovarianceStamped& pose) {
+	map_pose=pose.pose.pose;
 	mapx_offset=map_pose.position.x;
 	mapy_offset=map_pose.position.y;
+	ROS_INFO("Offset Update: (%f,%f)",mapx_offset,mapy_offset);
 }
 
 
@@ -262,6 +276,7 @@ int main(int argc, char **argv) {
     ros::Subscriber alexa_code = nh.subscribe("/Alexa_codes", 1, alexaCB);
     ros::Subscriber odom_sub = nh.subscribe("/odom", 1, odomCB);
     ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose",1,amclCB); 
+    client = nh.serviceClient<alpha_mobot_pub_des_state::path>("append_path_queue_service");
 
     while(ros::ok()) {
     	if (!got_alexa_code&&!has_nodes) {

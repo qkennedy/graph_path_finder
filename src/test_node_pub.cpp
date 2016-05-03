@@ -199,7 +199,42 @@ void hyper_loop(){
     msg.data=10006;
     alexa_spoof.publish(msg);
 }
-
+void gazebo_test(){
+    graph.nodes.clear();
+    node.name.data="Zero";
+    geometry_msgs::Point point;
+    point.x=0;
+    point.y=0;
+    node.point=point;
+    std_msgs::Int32MultiArray array;
+    array.data.push_back(1);
+    array.data.push_back(2);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="One";
+    node.point.x=1;
+    node.point.y=1;
+    array.data.clear();
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="Two";
+    node.point.x=0;
+    node.point.y=3;
+    array.data.clear();
+    array.data.push_back(3);
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    node.name.data="Three";
+    node.point.x=4;
+    node.point.y=3;
+    array.data.clear();
+    node.goes_to=array;
+    graph.nodes.push_back(node);
+    graph_pub.publish(graph);
+    std_msgs::UInt32 msg;
+    msg.data=10003;
+    alexa_spoof.publish(msg);
+}
 int main(int argc, char **argv) {
     ros::init(argc, argv, "graph_publisher"); // name of this node will be "minimal_publisher"
     ros::NodeHandle n; // two lines to create a publisher object that can talk to ROS
@@ -207,7 +242,7 @@ int main(int argc, char **argv) {
     alexa_spoof = n.advertise<std_msgs::UInt32>("/Alexa_codes", 1);
     while (ros::ok()) {
         cout<<endl;
-        cout << "enter a number \n 1:Rand 1 Node \n 2:Rand 3 Nodes \n 3: real 4 node graph \n 4:ShortLoop \n 5:Hyperloop (7 nodes, multiple loops) (x to quit): ";
+        cout << "enter a number \n 1:Rand 1 Node \n 2:Gazebo Test \n 3: real 4 node graph \n 4:ShortLoop \n 5:Hyperloop (7 nodes, multiple loops) (x to quit): ";
         std::string in_name;
         cin>>in_name;
         if (in_name.compare("x")==0){
@@ -215,7 +250,7 @@ int main(int argc, char **argv) {
         }else if(in_name.compare("1")==0){
             oneNodeDummy();
         }else if(in_name.compare("2")==0){
-            threeNodeDummy();
+            gazebo_test();
         }else if(in_name.compare("3")==0){
             real_graph();
         }else if(in_name.compare("4")==0){

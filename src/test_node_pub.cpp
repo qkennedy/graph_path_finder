@@ -152,6 +152,8 @@ void hyper_loop(){
     node.point.x=1;
     node.point.y=1;
     array.data.clear();
+    array.data.push_back(2);
+    array.data.push_back(3);
     node.goes_to=array;
     graph.nodes.push_back(node);
 

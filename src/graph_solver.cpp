@@ -174,17 +174,14 @@ std::vector<int> solve(int start, int goal){
 			all_inf=true;
 		}
 		index=lowestind;
-	}	
-	ROS_INFO("WE MADE IT BOYS");
+	}
 	print_nodes(visited);
-		ROS_INFO("Contains did nothing wrong!");
 		std::vector<int> path_keys;
 		it=visited.find(goal);
 		bool looped=false;
 		//this loop starts at the goal node, keeps checking the best node to come from
 		//until it gets to the starting index or finds it has entered a loop
 		int last=-1;
-		ROS_INFO("above loop");
 		while(it->first!=start){
 			path_keys.push_back(it->first);
 			ROS_INFO("pushed %d",it->first);
@@ -239,7 +236,6 @@ void graph_CB(const graph_path_finder::Graph::ConstPtr& graph) {
   	ROS_INFO("received: %d nodes",num_nodes); 
   	g_nodes.clear();
   	for (int i=0;i<num_nodes;i++) {
-  		ROS_INFO("Looping through the nodes");
     	int index=i;
     	Node tmp;
     	tmp.name=graph->nodes[i].name.data;
